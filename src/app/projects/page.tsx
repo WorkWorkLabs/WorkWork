@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ProjectForm } from '@/components/projects/project-form';
 import { ProjectList } from '@/components/projects/project-list';
+import { Navbar } from '@/components/layout/navbar';
 import { trpc } from '@/trpc/client';
 
 // Temporary user ID for demo - will be replaced with auth
@@ -91,9 +92,11 @@ export default function ProjectsPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Projects</h1>
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">项目管理</h1>
         <div className="flex gap-3">
           <label className="flex items-center gap-2 text-sm text-gray-600">
             <input
@@ -147,15 +150,16 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      {/* Project List */}
-      <div className="bg-white rounded-lg shadow">
-        <ProjectList
-          projects={projectsQuery.data || []}
-          onEdit={handleEdit}
-          onArchive={handleArchive}
-          onUnarchive={handleUnarchive}
-          isLoading={projectsQuery.isLoading}
-        />
+        {/* Project List */}
+        <div className="bg-white rounded-lg shadow">
+          <ProjectList
+            projects={projectsQuery.data || []}
+            onEdit={handleEdit}
+            onArchive={handleArchive}
+            onUnarchive={handleUnarchive}
+            isLoading={projectsQuery.isLoading}
+          />
+        </div>
       </div>
     </div>
   );

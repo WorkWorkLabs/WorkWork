@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ClientForm } from '@/components/clients/client-form';
 import { ClientList } from '@/components/clients/client-list';
+import { Navbar } from '@/components/layout/navbar';
 import { trpc } from '@/trpc/client';
 
 // Temporary user ID for demo - will be replaced with auth
@@ -94,9 +95,11 @@ export default function ClientsPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Clients</h1>
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">客户管理</h1>
         <Button onClick={() => { setShowForm(true); setEditingClient(null); }}>
           Add Client
         </Button>
@@ -146,14 +149,15 @@ export default function ClientsPage() {
         </div>
       )}
 
-      {/* Client List */}
-      <div className="bg-white rounded-lg shadow">
-        <ClientList
-          clients={clientsQuery.data || []}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          isLoading={clientsQuery.isLoading}
-        />
+        {/* Client List */}
+        <div className="bg-white rounded-lg shadow">
+          <ClientList
+            clients={clientsQuery.data || []}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            isLoading={clientsQuery.isLoading}
+          />
+        </div>
       </div>
     </div>
   );

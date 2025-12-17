@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { InvoiceForm } from '@/components/invoices/invoice-form';
+import { Navbar } from '@/components/layout/navbar';
 import { trpc } from '@/trpc/client';
 
 const DEMO_USER_ID = 'demo-user-id';
@@ -57,17 +58,20 @@ export default function NewInvoicePage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Create Invoice</h1>
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">创建发票</h1>
 
-      <div className="bg-white rounded-lg shadow p-6">
-        <InvoiceForm
-          clients={(clientsQuery.data || []).map((c) => ({ id: c.id, name: c.name }))}
-          projects={(projectsQuery.data || []).map((p) => ({ id: p.id, name: p.name }))}
-          onSubmit={handleSubmit}
-          onCancel={() => router.push('/invoices')}
-          isLoading={createMutation.isPending}
-        />
+        <div className="bg-white rounded-lg shadow p-6">
+          <InvoiceForm
+            clients={(clientsQuery.data || []).map((c) => ({ id: c.id, name: c.name }))}
+            projects={(projectsQuery.data || []).map((p) => ({ id: p.id, name: p.name }))}
+            onSubmit={handleSubmit}
+            onCancel={() => router.push('/invoices')}
+            isLoading={createMutation.isPending}
+          />
+        </div>
       </div>
     </div>
   );

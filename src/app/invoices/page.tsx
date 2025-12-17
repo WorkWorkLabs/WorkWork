@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { InvoiceList } from '@/components/invoices/invoice-list';
+import { Navbar } from '@/components/layout/navbar';
 import { trpc } from '@/trpc/client';
 
 const DEMO_USER_ID = 'demo-user-id';
@@ -49,13 +50,15 @@ export default function InvoicesPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Invoices</h1>
-        <Link href="/invoices/new">
-          <Button>Create Invoice</Button>
-        </Link>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">发票管理</h1>
+          <Link href="/invoices/new">
+            <Button>创建发票</Button>
+          </Link>
+        </div>
 
       {/* Filters */}
       <div className="mb-6 flex gap-4">
@@ -73,21 +76,22 @@ export default function InvoicesPage() {
         </select>
       </div>
 
-      {/* Invoice List */}
-      <div className="bg-white rounded-lg shadow">
-        <InvoiceList
-          invoices={(invoicesQuery.data || []).map((inv) => ({
-            ...inv,
-            total: String(inv.total),
-          }))}
-          onView={(invoice) => {
-            window.location.href = `/invoices/${invoice.id}`;
-          }}
-          onSend={handleSend}
-          onMarkPaid={handleMarkPaid}
-          onCancel={handleCancel}
-          isLoading={invoicesQuery.isLoading}
-        />
+        {/* Invoice List */}
+        <div className="bg-white rounded-lg shadow">
+          <InvoiceList
+            invoices={(invoicesQuery.data || []).map((inv) => ({
+              ...inv,
+              total: String(inv.total),
+            }))}
+            onView={(invoice) => {
+              window.location.href = `/invoices/${invoice.id}`;
+            }}
+            onSend={handleSend}
+            onMarkPaid={handleMarkPaid}
+            onCancel={handleCancel}
+            isLoading={invoicesQuery.isLoading}
+          />
+        </div>
       </div>
     </div>
   );
