@@ -19,8 +19,12 @@ type Currency = 'USD' | 'EUR' | 'CNY' | 'GBP' | 'JPY';
 
 export default function NewInvoicePage() {
   const router = useRouter();
+  const utils = trpc.useUtils();
   const today = new Date().toISOString().split('T')[0];
   const defaultDueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  // Client selection mode: 'existing' or 'new'
+  const [clientMode, setClientMode] = useState<'existing' | 'new'>('new');
 
   // Form state
   const [dueDate, setDueDate] = useState(defaultDueDate);
@@ -28,10 +32,17 @@ export default function NewInvoicePage() {
   const [fromName, setFromName] = useState('');
   const [fromAddress, setFromAddress] = useState('');
   const [fromPhone, setFromPhone] = useState('');
+  
+  // Client info (for new client)
   const [toEmail, setToEmail] = useState('');
   const [toName, setToName] = useState('');
   const [toAddress, setToAddress] = useState('');
+  const [toCompany, setToCompany] = useState('');
+  const [toCountry, setToCountry] = useState('');
+  
+  // Existing client selection
   const [clientId, setClientId] = useState('');
+  
   const [projectId, setProjectId] = useState('');
   const [currency, setCurrency] = useState<Currency>('USD');
   const [lineItems, setLineItems] = useState<LineItemInput[]>([
@@ -43,7 +54,7 @@ export default function NewInvoicePage() {
   const [allowCryptoPayment, setAllowCryptoPayment] = useState(false);
 
   // Queries
-  const clientsQuery = trpc.client.list.useQuery({
+  const clientsQuery = trpc.clients.list.useQuery({
     userId: DEMO_USER_ID,
     active: true,
   });
@@ -55,6 +66,8 @@ export default function NewInvoicePage() {
 
   const createMutation = trpc.invoice.create.useMutation({
     onSuccess: () => {
+      // Invalidate clients query to refresh the list with new client
+      utils.clients.list.invalidate();
       router.push('/invoices');
     },
   });
@@ -82,7 +95,16 @@ export default function NewInvoicePage() {
     if (client) {
       setToName(client.name);
       setToEmail(client.email);
+      setToCompany(client.company || '');
+      setToCountry(client.country || '');
+      setClientMode('existing');
     }
+  };
+
+  const switchToNewClient = () => {
+    setClientMode('new');
+    setClientId('');
+    // Keep the entered info
   };
 
   const calculateTotal = (): string => {
@@ -101,13 +123,19 @@ export default function NewInvoicePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!clientId) {
+    
+    // Validation
+    if (clientMode === 'existing' && !clientId) {
       alert('请选择客户');
       return;
     }
-    await createMutation.mutateAsync({
+    if (clientMode === 'new' && (!toEmail || !toName)) {
+      alert('请填写客户邮箱和姓名');
+      return;
+    }
+
+    const baseInput = {
       userId: DEMO_USER_ID,
-      clientId,
       projectId: projectId || undefined,
       currency,
       issueDate: new Date(today),
@@ -121,7 +149,26 @@ export default function NewInvoicePage() {
       notes,
       allowCardPayment,
       allowCryptoPayment,
-    });
+    };
+
+    if (clientMode === 'existing') {
+      await createMutation.mutateAsync({
+        ...baseInput,
+        clientId,
+      });
+    } else {
+      // Create invoice with new client
+      await createMutation.mutateAsync({
+        ...baseInput,
+        newClient: {
+          name: toName,
+          email: toEmail,
+          company: toCompany || undefined,
+          country: toCountry || undefined,
+          address: toAddress || undefined,
+        },
+      });
+    }
   };
 
   // Preview data
@@ -179,13 +226,13 @@ export default function NewInvoicePage() {
           {/* Right: Form */}
           <div className="order-1 lg:order-2">
             <div className="bg-white rounded-lg shadow-lg p-6">
-              <h1 className="text-2xl font-bold text-gray-900 mb-6">Create Invoice</h1>
+              <h1 className="text-2xl font-bold text-gray-900 mb-6">创建发票</h1>
 
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Due Date */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Due Date <span className="text-red-500">*</span>
+                    到期日期 <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="date"
@@ -197,11 +244,11 @@ export default function NewInvoicePage() {
 
                 {/* From (You) Section */}
                 <div className="space-y-4">
-                  <h2 className="text-lg font-semibold text-gray-900">From (You)</h2>
+                  <h2 className="text-lg font-semibold text-gray-900">发送方 (您)</h2>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email <span className="text-red-500">*</span>
+                      邮箱 <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="email"
@@ -214,35 +261,35 @@ export default function NewInvoicePage() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Name <span className="text-red-500">*</span>
+                      名称 <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       value={fromName}
                       onChange={(e) => setFromName(e.target.value)}
-                      placeholder="Your Name / Business Name"
+                      placeholder="您的姓名 / 公司名称"
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">地址</label>
                     <input
                       type="text"
                       value={fromAddress}
                       onChange={(e) => setFromAddress(e.target.value)}
-                      placeholder="Your Address"
+                      placeholder="您的地址"
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">电话</label>
                     <input
                       type="text"
                       value={fromPhone}
                       onChange={(e) => setFromPhone(e.target.value)}
-                      placeholder="Your Phone"
+                      placeholder="您的电话"
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
                   </div>
@@ -250,99 +297,166 @@ export default function NewInvoicePage() {
 
                 {/* To (Client) Section */}
                 <div className="space-y-4">
-                  <h2 className="text-lg font-semibold text-gray-900">To (Your client)</h2>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Select Client <span className="text-red-500">*</span>
-                    </label>
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-gray-900">收款方 (客户)</h2>
                     <div className="flex gap-2">
-                      <select
-                        value={clientId}
-                        onChange={(e) => handleClientSelect(e.target.value)}
-                        className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      <button
+                        type="button"
+                        onClick={() => setClientMode('new')}
+                        className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                          clientMode === 'new'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
                       >
-                        <option value="">Select a client</option>
-                        {clientsQuery.data?.map((client) => (
-                          <option key={client.id} value={client.id}>
-                            {client.name}
-                          </option>
-                        ))}
-                      </select>
+                        新客户
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setClientMode('existing')}
+                        className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                          clientMode === 'existing'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        已有客户
+                      </button>
                     </div>
-                    {/* Recent Contacts */}
-                    {clientsQuery.data && clientsQuery.data.length > 0 && (
-                      <div className="mt-2">
-                        <p className="text-xs text-gray-500 mb-1">Recent Contacts</p>
-                        <div className="space-y-1">
-                          {clientsQuery.data.slice(0, 3).map((client) => (
-                            <button
-                              key={client.id}
-                              type="button"
-                              onClick={() => handleClientSelect(client.id)}
-                              className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                                clientId === client.id
-                                  ? 'bg-emerald-50 border border-emerald-200'
-                                  : 'hover:bg-gray-50'
-                              }`}
-                            >
-                              <div className="font-medium text-gray-900">{client.name}</div>
-                              <div className="text-gray-500 text-xs">{client.email}</div>
-                            </button>
+                  </div>
+
+                  {clientMode === 'existing' ? (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          选择客户 <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={clientId}
+                          onChange={(e) => handleClientSelect(e.target.value)}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        >
+                          <option value="">选择客户...</option>
+                          {clientsQuery.data?.map((client) => (
+                            <option key={client.id} value={client.id}>
+                              {client.name} ({client.email})
+                            </option>
                           ))}
-                        </div>
+                        </select>
                       </div>
-                    )}
-                  </div>
+                      {/* Recent Contacts */}
+                      {clientsQuery.data && clientsQuery.data.length > 0 && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-2">最近联系人</p>
+                          <div className="space-y-1">
+                            {clientsQuery.data.slice(0, 3).map((client) => (
+                              <button
+                                key={client.id}
+                                type="button"
+                                onClick={() => handleClientSelect(client.id)}
+                                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                                  clientId === client.id
+                                    ? 'bg-emerald-50 border border-emerald-200'
+                                    : 'bg-gray-50 hover:bg-gray-100'
+                                }`}
+                              >
+                                <div className="font-medium text-gray-900">{client.name}</div>
+                                <div className="text-gray-500 text-xs">{client.email}</div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {clientsQuery.data?.length === 0 && (
+                        <div className="text-center py-4 text-gray-500">
+                          <p>暂无客户记录</p>
+                          <button
+                            type="button"
+                            onClick={switchToNewClient}
+                            className="text-emerald-600 hover:text-emerald-700 mt-2"
+                          >
+                            添加新客户
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className="p-3 bg-emerald-50 rounded-lg text-sm text-emerald-700">
+                        💡 新客户信息将在发票创建时自动保存到客户列表
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          邮箱 <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="email"
+                          value={toEmail}
+                          onChange={(e) => setToEmail(e.target.value)}
+                          placeholder="client@email.com"
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        />
+                      </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      value={toEmail}
-                      onChange={(e) => setToEmail(e.target.value)}
-                      placeholder="client@email.com"
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    />
-                  </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          姓名 <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={toName}
+                          onChange={(e) => setToName(e.target.value)}
+                          placeholder="客户姓名"
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        />
+                      </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={toName}
-                      onChange={(e) => setToName(e.target.value)}
-                      placeholder="Client Name"
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    />
-                  </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">公司</label>
+                        <input
+                          type="text"
+                          value={toCompany}
+                          onChange={(e) => setToCompany(e.target.value)}
+                          placeholder="客户公司名称"
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        />
+                      </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                    <input
-                      type="text"
-                      value={toAddress}
-                      onChange={(e) => setToAddress(e.target.value)}
-                      placeholder="Client Address"
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    />
-                  </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">国家/地区</label>
+                        <input
+                          type="text"
+                          value={toCountry}
+                          onChange={(e) => setToCountry(e.target.value)}
+                          placeholder="客户所在国家/地区"
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">地址</label>
+                        <input
+                          type="text"
+                          value={toAddress}
+                          onChange={(e) => setToAddress(e.target.value)}
+                          placeholder="客户地址"
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Project & Currency */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">项目</label>
                     <select
                       value={projectId}
                       onChange={(e) => setProjectId(e.target.value)}
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     >
-                      <option value="">No project</option>
+                      <option value="">无项目</option>
                       {projectsQuery.data?.map((project) => (
                         <option key={project.id} value={project.id}>
                           {project.name}
@@ -351,36 +465,36 @@ export default function NewInvoicePage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">币种</label>
                     <select
                       value={currency}
                       onChange={(e) => setCurrency(e.target.value as Currency)}
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     >
-                      <option value="USD">USD</option>
-                      <option value="EUR">EUR</option>
-                      <option value="CNY">CNY</option>
-                      <option value="GBP">GBP</option>
-                      <option value="JPY">JPY</option>
+                      <option value="USD">USD - 美元</option>
+                      <option value="EUR">EUR - 欧元</option>
+                      <option value="CNY">CNY - 人民币</option>
+                      <option value="GBP">GBP - 英镑</option>
+                      <option value="JPY">JPY - 日元</option>
                     </select>
                   </div>
                 </div>
 
                 {/* Line Items */}
                 <div className="space-y-4">
-                  <h2 className="text-lg font-semibold text-gray-900">Items</h2>
+                  <h2 className="text-lg font-semibold text-gray-900">服务项目</h2>
                   
                   {lineItems.map((item, index) => (
                     <div key={index} className="p-4 bg-gray-50 rounded-lg space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-700">Item {index + 1}</span>
+                        <span className="text-sm font-medium text-gray-700">项目 {index + 1}</span>
                         {lineItems.length > 1 && (
                           <button
                             type="button"
                             onClick={() => removeLineItem(index)}
                             className="text-red-500 hover:text-red-700 text-sm"
                           >
-                            Remove
+                            删除
                           </button>
                         )}
                       </div>
@@ -388,12 +502,12 @@ export default function NewInvoicePage() {
                         type="text"
                         value={item.description}
                         onChange={(e) => updateLineItem(index, 'description', e.target.value)}
-                        placeholder="Description"
+                        placeholder="服务描述"
                         className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                       />
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-xs text-gray-500 mb-1">Quantity</label>
+                          <label className="block text-xs text-gray-500 mb-1">数量</label>
                           <input
                             type="number"
                             step="0.01"
@@ -403,7 +517,7 @@ export default function NewInvoicePage() {
                           />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-500 mb-1">Unit Price</label>
+                          <label className="block text-xs text-gray-500 mb-1">单价</label>
                           <input
                             type="number"
                             step="0.01"
@@ -421,13 +535,13 @@ export default function NewInvoicePage() {
                     onClick={addLineItem}
                     className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-emerald-500 hover:text-emerald-600 transition-colors"
                   >
-                    + Add Item
+                    + 添加项目
                   </button>
                 </div>
 
                 {/* Tax Rate */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tax Rate (%)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">税率 (%)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -439,7 +553,7 @@ export default function NewInvoicePage() {
 
                 {/* Notes */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">备注</label>
                   <textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
@@ -450,7 +564,7 @@ export default function NewInvoicePage() {
 
                 {/* Payment Options */}
                 <div className="space-y-3">
-                  <h2 className="text-lg font-semibold text-gray-900">Payment Options</h2>
+                  <h2 className="text-lg font-semibold text-gray-900">支付方式</h2>
                   <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100">
                     <input
                       type="checkbox"
@@ -458,7 +572,7 @@ export default function NewInvoicePage() {
                       onChange={(e) => setAllowCardPayment(e.target.checked)}
                       className="w-5 h-5 text-emerald-600 rounded"
                     />
-                    <span className="text-gray-700">Allow Card Payment (Stripe)</span>
+                    <span className="text-gray-700">允许银行卡支付 (Stripe)</span>
                   </label>
                   <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100">
                     <input
@@ -467,14 +581,14 @@ export default function NewInvoicePage() {
                       onChange={(e) => setAllowCryptoPayment(e.target.checked)}
                       className="w-5 h-5 text-emerald-600 rounded"
                     />
-                    <span className="text-gray-700">Allow Crypto Payment (USDC/USDT)</span>
+                    <span className="text-gray-700">允许加密货币支付 (USDC/USDT)</span>
                   </label>
                 </div>
 
                 {/* Total Summary */}
                 <div className="p-4 bg-emerald-50 rounded-lg">
                   <div className="flex justify-between items-center">
-                    <span className="text-lg font-semibold text-gray-900">Total</span>
+                    <span className="text-lg font-semibold text-gray-900">总计</span>
                     <span className="text-2xl font-bold text-emerald-600">
                       {currency} {calculateTotal()}
                     </span>

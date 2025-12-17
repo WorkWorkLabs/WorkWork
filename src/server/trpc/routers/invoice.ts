@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { router, publicProcedure } from '../trpc';
 import {
   createInvoice,
+  createInvoiceWithNewClient,
   getInvoiceById,
   getInvoiceByPaymentToken,
   sendInvoice,
@@ -17,9 +18,22 @@ const lineItemSchema = z.object({
   unitPrice: z.union([z.number(), z.string()]).transform((v) => String(v)),
 });
 
+// New client info schema (for creating client inline)
+const newClientSchema = z.object({
+  name: z.string().min(1).max(200),
+  email: z.string().email(),
+  company: z.string().max(200).optional(),
+  country: z.string().max(100).optional(),
+  address: z.string().max(500).optional(),
+  phone: z.string().max(50).optional(),
+  notes: z.string().max(1000).optional(),
+});
+
 const createInvoiceSchema = z.object({
   userId: z.string().min(1),
-  clientId: z.string().min(1),
+  // Either clientId OR newClient must be provided
+  clientId: z.string().optional(),
+  newClient: newClientSchema.optional(),
   projectId: z.string().optional(),
   currency: z.enum(['USD', 'EUR', 'CNY', 'GBP', 'JPY']),
   issueDate: z.coerce.date(),
@@ -29,7 +43,10 @@ const createInvoiceSchema = z.object({
   notes: z.string().max(1000).optional(),
   allowCardPayment: z.boolean().optional(),
   allowCryptoPayment: z.boolean().optional(),
-});
+}).refine(
+  (data) => data.clientId || data.newClient,
+  { message: 'Either clientId or newClient must be provided' }
+);
 
 const listInvoicesSchema = z.object({
   userId: z.string().min(1),
@@ -43,10 +60,32 @@ const listInvoicesSchema = z.object({
 export const invoiceRouter = router({
   /**
    * Create a new invoice
+   * Supports both existing client (clientId) and new client (newClient)
+   * If newClient is provided, creates the client first then creates the invoice
    * _需求: 5.4_
    */
   create: publicProcedure.input(createInvoiceSchema).mutation(async ({ input }) => {
-    return createInvoice(input);
+    if (input.newClient) {
+      // Create invoice with new client
+      return createInvoiceWithNewClient({
+        userId: input.userId,
+        newClient: input.newClient,
+        projectId: input.projectId,
+        currency: input.currency,
+        issueDate: input.issueDate,
+        dueDate: input.dueDate,
+        lineItems: input.lineItems,
+        taxRate: input.taxRate,
+        notes: input.notes,
+        allowCardPayment: input.allowCardPayment,
+        allowCryptoPayment: input.allowCryptoPayment,
+      });
+    }
+    // Use existing client
+    return createInvoice({
+      ...input,
+      clientId: input.clientId!,
+    });
   }),
 
   /**

@@ -22,6 +22,30 @@ export interface CreateInvoiceInput {
   allowCryptoPayment?: boolean;
 }
 
+export interface NewClientInput {
+  name: string;
+  email: string;
+  company?: string;
+  country?: string;
+  address?: string;
+  phone?: string;
+  notes?: string;
+}
+
+export interface CreateInvoiceWithNewClientInput {
+  userId: string;
+  newClient: NewClientInput;
+  projectId?: string;
+  currency: Currency;
+  issueDate: Date;
+  dueDate: Date;
+  lineItems: LineItemInput[];
+  taxRate?: number | string;
+  notes?: string;
+  allowCardPayment?: boolean;
+  allowCryptoPayment?: boolean;
+}
+
 export interface InvoiceFilters {
   userId: string;
   status?: InvoiceStatus;
@@ -106,6 +130,119 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<Invoice 
   });
 
   return invoice;
+}
+
+/**
+ * Create a new invoice with a new client
+ * Creates the client first, then creates the invoice
+ * This allows users to create invoices without pre-creating clients
+ */
+export async function createInvoiceWithNewClient(
+  input: CreateInvoiceWithNewClientInput
+): Promise<Invoice & { lineItems: LineItem[]; client: { id: string; name: string; email: string } }> {
+  // Use transaction to ensure both client and invoice are created together
+  return prisma.$transaction(async (tx) => {
+    // First, check if client with same email already exists for this user
+    let client = await tx.client.findFirst({
+      where: {
+        userId: input.userId,
+        email: input.newClient.email,
+      },
+    });
+
+    if (client) {
+      // Update existing client with new info if provided
+      client = await tx.client.update({
+        where: { id: client.id },
+        data: {
+          name: input.newClient.name,
+          company: input.newClient.company,
+          country: input.newClient.country,
+          notes: input.newClient.notes,
+          active: true, // Reactivate if was soft-deleted
+        },
+      });
+    } else {
+      // Create new client
+      client = await tx.client.create({
+        data: {
+          userId: input.userId,
+          name: input.newClient.name,
+          email: input.newClient.email,
+          company: input.newClient.company,
+          country: input.newClient.country,
+          notes: input.newClient.notes,
+          active: true,
+        },
+      });
+    }
+
+    // Generate invoice number
+    const now = new Date();
+    const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const prefix = `INV-${yearMonth}-`;
+
+    const lastInvoice = await tx.invoice.findFirst({
+      where: {
+        userId: input.userId,
+        invoiceNumber: { startsWith: prefix },
+      },
+      orderBy: { invoiceNumber: 'desc' },
+      select: { invoiceNumber: true },
+    });
+
+    let nextNumber = 1;
+    if (lastInvoice) {
+      const lastNumber = parseInt(lastInvoice.invoiceNumber.slice(-4), 10);
+      nextNumber = lastNumber + 1;
+    }
+    const invoiceNumber = `${prefix}${String(nextNumber).padStart(4, '0')}`;
+
+    // Calculate invoice totals
+    const calculation = calculateInvoice(input.lineItems, input.taxRate || 0);
+
+    // Create invoice
+    const invoice = await tx.invoice.create({
+      data: {
+        userId: input.userId,
+        clientId: client.id,
+        projectId: input.projectId,
+        invoiceNumber,
+        currency: input.currency,
+        issueDate: input.issueDate,
+        dueDate: input.dueDate,
+        subtotal: calculation.subtotal.toFixed(2),
+        taxRate: calculation.taxRate.toFixed(4),
+        taxAmount: calculation.taxAmount.toFixed(2),
+        total: calculation.total.toFixed(2),
+        status: 'draft',
+        notes: input.notes,
+        allowCardPayment: input.allowCardPayment ?? true,
+        allowCryptoPayment: input.allowCryptoPayment ?? false,
+        lineItems: {
+          create: calculation.lineItems.map((item, index) => ({
+            description: item.description,
+            quantity: item.quantity.toFixed(2),
+            unitPrice: item.unitPrice.toFixed(2),
+            total: item.total.toFixed(2),
+            sortOrder: index,
+          })),
+        },
+      },
+      include: {
+        lineItems: true,
+      },
+    });
+
+    return {
+      ...invoice,
+      client: {
+        id: client.id,
+        name: client.name,
+        email: client.email,
+      },
+    };
+  });
 }
 
 /**

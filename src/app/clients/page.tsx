@@ -26,27 +26,27 @@ export default function ClientsPage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // tRPC queries and mutations
-  const clientsQuery = trpc.client.list.useQuery({
+  const clientsQuery = trpc.clients.list.useQuery({
     userId: DEMO_USER_ID,
     search: searchQuery || undefined,
     active: true,
   });
 
-  const createMutation = trpc.client.create.useMutation({
+  const createMutation = trpc.clients.create.useMutation({
     onSuccess: () => {
       clientsQuery.refetch();
       setShowForm(false);
     },
   });
 
-  const updateMutation = trpc.client.update.useMutation({
+  const updateMutation = trpc.clients.update.useMutation({
     onSuccess: () => {
       clientsQuery.refetch();
       setEditingClient(null);
     },
   });
 
-  const deleteMutation = trpc.client.delete.useMutation({
+  const deleteMutation = trpc.clients.delete.useMutation({
     onSuccess: () => {
       clientsQuery.refetch();
     },

@@ -6,10 +6,11 @@ import { invoiceRouter } from './invoice';
 
 /**
  * Main app router - combine all sub-routers here
+ * Note: 'clients' is used instead of 'client' to avoid collision with tRPC built-in method
  */
 export const appRouter = router({
   auth: authRouter,
-  client: clientRouter,
+  clients: clientRouter,
   project: projectRouter,
   invoice: invoiceRouter,
 });
