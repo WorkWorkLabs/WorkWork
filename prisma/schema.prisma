@@ -1,0 +1,360 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Enums
+// ============================================
+
+enum Currency {
+  USD
+  EUR
+  CNY
+  GBP
+  JPY
+}
+
+enum Chain {
+  arbitrum
+  base
+  polygon
+}
+
+enum StablecoinAsset {
+  USDC
+  USDT
+}
+
+enum PaymentMethod {
+  card
+  bank_transfer
+  crypto_usdc
+  crypto_usdt
+}
+
+enum InvoiceStatus {
+  draft
+  sent
+  paid
+  overdue
+  cancelled
+}
+
+enum PaymentType {
+  fiat
+  crypto
+}
+
+enum PaymentStatus {
+  pending
+  processing
+  succeeded
+  failed
+  cancelled
+}
+
+
+// ============================================
+// User & Authentication Models (需求 1.1-1.10)
+// ============================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  settings       UserSettings?
+  trustedDevices TrustedDevice[]
+  twoFactorAuth  TwoFactorAuth?
+  clients        Client[]
+  projects       Project[]
+  invoices       Invoice[]
+  ledgerEntries  LedgerEntry[]
+  walletAddresses WalletAddress[]
+  magicLinks     MagicLink[]
+}
+
+model UserSettings {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  businessName     String?
+  logoUrl          String?
+  country          String?
+  defaultCurrency  Currency @default(USD)
+  estimatedTaxRate Decimal  @default(0) @db.Decimal(5, 4)
+  pspCredentials   Json?    // Encrypted PSP API credentials
+  cryptoSettings   Json?    // Stablecoin payment settings
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TrustedDevice {
+  id              String   @id @default(cuid())
+  userId          String
+  fingerprintHash String
+  deviceName      String?
+  userAgent       String?
+  platform        String?
+  timezone        String?
+  language        String?
+  lastUsedAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([fingerprintHash])
+}
+
+model TwoFactorAuth {
+  id        String    @id @default(cuid())
+  userId    String    @unique
+  secret    String
+  enabled   Boolean   @default(false)
+  enabledAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model MagicLink {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+}
+
+
+// ============================================
+// Client & Project Models (需求 3.1-3.5, 4.1-4.4)
+// ============================================
+
+model Client {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  email     String
+  company   String?
+  country   String?
+  notes     String?
+  active    Boolean  @default(true) // Soft delete field
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoices      Invoice[]
+  ledgerEntries LedgerEntry[]
+
+  @@index([userId])
+  @@index([email])
+  @@index([name])
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  archived    Boolean  @default(false) // Soft delete field
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoices      Invoice[]
+  ledgerEntries LedgerEntry[]
+
+  @@index([userId])
+}
+
+
+// ============================================
+// Invoice & Payment Models (需求 5.1-5.10)
+// ============================================
+
+model Invoice {
+  id                 String        @id @default(cuid())
+  userId             String
+  clientId           String
+  projectId          String?
+  invoiceNumber      String        @unique
+  paymentToken       String?       @unique // Generated when invoice is sent
+  currency           Currency
+  issueDate          DateTime      @db.Date
+  dueDate            DateTime      @db.Date
+  subtotal           Decimal       @db.Decimal(18, 2)
+  taxRate            Decimal       @default(0) @db.Decimal(5, 4)
+  taxAmount          Decimal       @db.Decimal(18, 2)
+  total              Decimal       @db.Decimal(18, 2)
+  status             InvoiceStatus @default(draft)
+  notes              String?
+  allowCardPayment   Boolean       @default(true)
+  allowCryptoPayment Boolean       @default(false)
+  sentAt             DateTime?
+  paidAt             DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  // Relations
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client      Client        @relation(fields: [clientId], references: [id])
+  project     Project?      @relation(fields: [projectId], references: [id])
+  lineItems   LineItem[]
+  payment     Payment?
+  ledgerEntry LedgerEntry?
+
+  @@index([userId])
+  @@index([clientId])
+  @@index([projectId])
+  @@index([status])
+  @@index([paymentToken])
+}
+
+model LineItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  description String
+  quantity    Decimal @db.Decimal(18, 2)
+  unitPrice   Decimal @db.Decimal(18, 2)
+  total       Decimal @db.Decimal(18, 2)
+  sortOrder   Int     @default(0)
+
+  // Relations
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  invoiceId   String        @unique
+  type        PaymentType
+  amount      Decimal       @db.Decimal(18, 2)
+  currency    Currency
+  status      PaymentStatus @default(pending)
+  metadata    Json?
+  completedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  invoice      Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  fiatPayment  FiatPayment?
+  cryptoPayment CryptoPayment?
+}
+
+model FiatPayment {
+  id                String @id @default(cuid())
+  paymentId         String @unique
+  pspProvider       String // e.g., 'stripe', 'airwallex'
+  pspPaymentId      String?
+  checkoutSessionId String?
+
+  // Relations
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+}
+
+model CryptoPayment {
+  id            String          @id @default(cuid())
+  paymentId     String          @unique
+  chain         Chain
+  asset         StablecoinAsset
+  txHash        String?
+  fromAddress   String?
+  toAddress     String
+  confirmations Int             @default(0)
+
+  // Relations
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+}
+
+
+// ============================================
+// Ledger & Wallet Models (需求 7.1-7.4, 8.1-8.4)
+// ============================================
+
+model LedgerEntry {
+  id                       String        @id @default(cuid())
+  userId                   String
+  invoiceId                String        @unique
+  clientId                 String
+  projectId                String?
+  entryDate                DateTime      @db.Date
+  amount                   Decimal       @db.Decimal(18, 2)
+  currency                 Currency
+  amountInDefaultCurrency  Decimal       @db.Decimal(18, 2)
+  paymentMethod            PaymentMethod
+  clientCountry            String?
+  metadata                 Json?
+  createdAt                DateTime      @default(now())
+
+  // Relations
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoice Invoice  @relation(fields: [invoiceId], references: [id])
+  client  Client   @relation(fields: [clientId], references: [id])
+  project Project? @relation(fields: [projectId], references: [id])
+
+  @@index([userId])
+  @@index([clientId])
+  @@index([projectId])
+  @@index([entryDate])
+  @@index([currency])
+  @@index([paymentMethod])
+}
+
+model WalletAddress {
+  id        String          @id @default(cuid())
+  userId    String
+  chain     Chain
+  asset     StablecoinAsset
+  address   String
+  createdAt DateTime        @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, chain, asset])
+  @@index([userId])
+  @@index([address])
+}
+
+// ============================================
+// Webhook Processing (for idempotency)
+// ============================================
+
+model ProcessedWebhook {
+  id        String   @id @default(cuid())
+  provider  String   // 'stripe', 'alchemy'
+  eventId   String
+  payload   Json?
+  processedAt DateTime @default(now())
+
+  @@unique([provider, eventId])
+  @@index([provider])
+}
