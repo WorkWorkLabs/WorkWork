@@ -13,9 +13,9 @@ export interface CreateClientInput {
 export interface UpdateClientInput {
   name?: string;
   email?: string;
-  company?: string;
-  country?: string;
-  notes?: string;
+  company?: string | null;
+  country?: string | null;
+  notes?: string | null;
 }
 
 export interface ClientFilters {
