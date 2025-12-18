@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Decimal from 'decimal.js';
 import { Button } from '@/components/ui/button';
+import { CryptoPaymentSection } from './crypto-payment-section';
 import type { PaymentPageInvoice } from '@/server/payment/payment-link';
 
 interface PaymentPageContentProps {
@@ -247,9 +248,12 @@ export function PaymentPageContent({ invoice, token }: PaymentPageContentProps) 
                   </Button>
                 )}
                 {selectedMethod === 'crypto' && (
-                  <div className="text-center text-gray-600 py-4">
-                    <p>Crypto payment coming soon...</p>
-                  </div>
+                  <CryptoPaymentSection
+                    token={token}
+                    invoiceId={invoice.id}
+                    amount={new Decimal(invoice.total).toFixed(2)}
+                    currency={invoice.currency}
+                  />
                 )}
               </div>
             )}
