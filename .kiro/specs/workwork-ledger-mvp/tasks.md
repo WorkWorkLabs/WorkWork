@@ -173,15 +173,15 @@
 
 ## 阶段 P2: 支付集成
 
-- [ ] 10. 支付网关抽象层
-  - [ ] 10.1 定义 PaymentGateway 接口
+- [x] 10. 支付网关抽象层
+  - [x] 10.1 定义 PaymentGateway 接口
     - createCheckoutSession、verifyWebhook、getPaymentStatus
     - _需求: 6.2, 6.4_
-  - [ ] 10.2 实现 Stripe 适配器
+  - [x] 10.2 实现 Stripe 适配器
     - 创建 Checkout Session
     - 处理 Webhook 签名验证
     - _需求: 2.2, 6.2, 6.4_
-  - [ ] 10.3 实现 PSP 凭证验证和存储
+  - [x] 10.3 实现 PSP 凭证验证和存储
     - 加密存储 API keys
     - _需求: 2.2, 2.5_
 
