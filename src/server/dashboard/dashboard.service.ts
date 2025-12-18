@@ -46,6 +46,31 @@ export interface DashboardStats {
   paymentMethodDistribution: PaymentMethodDistribution[];
   periodAggregations: PeriodAggregation[];
   suggestedTaxReserve: Decimal | null;
+  stablecoinAggregation?: StablecoinAggregation;
+}
+
+// ============================================
+// Stablecoin Aggregation Types (需求 7.3)
+// ============================================
+
+export type StablecoinAsset = 'USDC' | 'USDT';
+export type Chain = 'arbitrum' | 'base' | 'polygon';
+
+export interface ChainBreakdown {
+  chain: Chain;
+  amount: Decimal;
+  percentage: number;
+}
+
+export interface AssetAggregation {
+  asset: StablecoinAsset;
+  totalAmount: Decimal;
+  chainBreakdown: ChainBreakdown[];
+}
+
+export interface StablecoinAggregation {
+  totalStablecoinIncome: Decimal;
+  byAsset: AssetAggregation[];
 }
 
 // ============================================
@@ -252,6 +277,103 @@ export function calculateTaxReserve(
   return totalIncome.mul(taxRate);
 }
 
+/**
+ * Aggregate stablecoin income by asset and chain
+ * Pure function for Property 17 testing
+ * _需求: 7.3_
+ */
+export function aggregateStablecoinIncome(
+  entries: Array<{
+    paymentMethod: PaymentMethod;
+    amountInDefaultCurrency: Decimal | string;
+    metadata?: Record<string, unknown> | null;
+  }>
+): StablecoinAggregation {
+  // Filter to only crypto payments
+  const cryptoEntries = entries.filter(
+    (entry) => entry.paymentMethod === 'crypto_usdc' || entry.paymentMethod === 'crypto_usdt'
+  );
+
+  // Map payment method to asset
+  const getAsset = (method: PaymentMethod): StablecoinAsset => {
+    return method === 'crypto_usdc' ? 'USDC' : 'USDT';
+  };
+
+  // Extract chain from metadata, default to 'arbitrum' if not specified
+  const getChain = (metadata?: Record<string, unknown> | null): Chain => {
+    if (metadata && typeof metadata.chain === 'string') {
+      const chain = metadata.chain as string;
+      if (chain === 'arbitrum' || chain === 'base' || chain === 'polygon') {
+        return chain;
+      }
+    }
+    return 'arbitrum'; // Default chain
+  };
+
+  // Aggregate by asset and chain
+  const assetChainTotals = new Map<StablecoinAsset, Map<Chain, Decimal>>();
+
+  for (const entry of cryptoEntries) {
+    const asset = getAsset(entry.paymentMethod);
+    const chain = getChain(entry.metadata);
+    const amount = typeof entry.amountInDefaultCurrency === 'string'
+      ? new Decimal(entry.amountInDefaultCurrency)
+      : entry.amountInDefaultCurrency;
+
+    if (!assetChainTotals.has(asset)) {
+      assetChainTotals.set(asset, new Map());
+    }
+    const chainMap = assetChainTotals.get(asset)!;
+    const current = chainMap.get(chain) || new Decimal(0);
+    chainMap.set(chain, current.add(amount));
+  }
+
+  // Calculate total stablecoin income
+  const totalStablecoinIncome = cryptoEntries.reduce((sum, entry) => {
+    const amount = typeof entry.amountInDefaultCurrency === 'string'
+      ? new Decimal(entry.amountInDefaultCurrency)
+      : entry.amountInDefaultCurrency;
+    return sum.add(amount);
+  }, new Decimal(0));
+
+  // Build result structure
+  const byAsset: AssetAggregation[] = [];
+
+  const assetKeys: StablecoinAsset[] = ['USDC', 'USDT'];
+  for (const asset of assetKeys) {
+    const chainMap = assetChainTotals.get(asset);
+    if (!chainMap) continue;
+
+    const chainValues = Array.from(chainMap.values());
+    const assetTotal = chainValues.reduce(
+      (sum: Decimal, amount: Decimal) => sum.add(amount),
+      new Decimal(0)
+    );
+
+    const chainEntries = Array.from(chainMap.entries());
+    const chainBreakdown: ChainBreakdown[] = chainEntries
+      .map(([chain, amount]: [Chain, Decimal]) => ({
+        chain,
+        amount,
+        percentage: assetTotal.isZero() ? 0 : amount.div(assetTotal).mul(100).toNumber(),
+      }))
+      .sort((a: ChainBreakdown, b: ChainBreakdown) => b.amount.minus(a.amount).toNumber());
+
+    byAsset.push({
+      asset,
+      totalAmount: assetTotal,
+      chainBreakdown,
+    });
+  }
+
+  // Sort by total amount descending
+  byAsset.sort((a, b) => b.totalAmount.minus(a.totalAmount).toNumber());
+
+  return {
+    totalStablecoinIncome,
+    byAsset,
+  };
+}
 
 // ============================================
 // Database Query Functions
@@ -322,6 +444,15 @@ export async function getDashboardStats(
     }
   }
 
+  // Calculate stablecoin aggregation
+  const stablecoinAggregation = aggregateStablecoinIncome(
+    entries.map(entry => ({
+      paymentMethod: entry.paymentMethod,
+      amountInDefaultCurrency: new Decimal(entry.amountInDefaultCurrency.toString()),
+      metadata: entry.metadata as Record<string, unknown> | null,
+    }))
+  );
+
   return {
     totalIncome,
     totalIncomeInDefaultCurrency,
@@ -329,6 +460,7 @@ export async function getDashboardStats(
     paymentMethodDistribution,
     periodAggregations,
     suggestedTaxReserve,
+    stablecoinAggregation,
   };
 }
 
@@ -427,4 +559,40 @@ export async function getPaymentMethodStats(
   }));
 
   return calculatePaymentMethodDistribution(entriesWithDecimal);
+}
+
+/**
+ * Get stablecoin income aggregation by asset and chain
+ * _需求: 7.3_
+ */
+export async function getStablecoinAggregation(
+  userId: string,
+  startDate: Date,
+  endDate: Date
+): Promise<StablecoinAggregation> {
+  const entries = await prisma.ledgerEntry.findMany({
+    where: {
+      userId,
+      entryDate: {
+        gte: startDate,
+        lte: endDate,
+      },
+      paymentMethod: {
+        in: ['crypto_usdc', 'crypto_usdt'],
+      },
+    },
+    select: {
+      paymentMethod: true,
+      amountInDefaultCurrency: true,
+      metadata: true,
+    },
+  });
+
+  const entriesWithDecimal = entries.map(entry => ({
+    paymentMethod: entry.paymentMethod,
+    amountInDefaultCurrency: new Decimal(entry.amountInDefaultCurrency.toString()),
+    metadata: entry.metadata as Record<string, unknown> | null,
+  }));
+
+  return aggregateStablecoinIncome(entriesWithDecimal);
 }

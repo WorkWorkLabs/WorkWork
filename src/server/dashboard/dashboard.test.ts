@@ -12,6 +12,9 @@ import {
   calculateClientRankings,
   calculatePaymentMethodDistribution,
   calculateTaxReserve,
+  aggregateStablecoinIncome,
+  type Chain,
+  type StablecoinAsset,
 } from './dashboard.service';
 import {
   currencyArb,
@@ -533,6 +536,221 @@ describe('Dashboard Service Property Tests', () => {
           (totalIncome, taxRate) => {
             const result = calculateTaxReserve(totalIncome, taxRate);
             return result.lessThanOrEqualTo(totalIncome);
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+  });
+
+  /**
+   * **Feature: workwork-ledger-mvp, Property 17: 稳定币收入聚合一致性**
+   * *对于任意*稳定币账本条目集合，按资产统一总额应等于各链明细之和
+   * **验证: 需求 7.3**
+   */
+  describe('Property 17: Stablecoin Income Aggregation Consistency', () => {
+    // Generator for crypto payment entries with chain metadata
+    const cryptoPaymentMethodArb = fc.constantFrom<PaymentMethod>('crypto_usdc', 'crypto_usdt');
+    const chainArb = fc.constantFrom<Chain>('arbitrum', 'base', 'polygon');
+
+    const cryptoEntryArb = fc.record({
+      paymentMethod: cryptoPaymentMethodArb,
+      amountInDefaultCurrency: decimalArb(0.01, 100000, 2),
+      metadata: fc.record({
+        chain: chainArb,
+        txHash: fc.string({ minLength: 64, maxLength: 64 }),
+      }),
+    });
+
+    // Mixed entries (crypto + fiat) for testing filtering
+    const mixedEntryArb = fc.oneof(
+      cryptoEntryArb,
+      fc.record({
+        paymentMethod: fc.constantFrom<PaymentMethod>('card', 'bank_transfer'),
+        amountInDefaultCurrency: decimalArb(0.01, 100000, 2),
+        metadata: fc.constant(null),
+      })
+    );
+
+    it('total stablecoin income should equal sum of all asset totals', () => {
+      fc.assert(
+        fc.property(
+          fc.array(cryptoEntryArb, { minLength: 0, maxLength: 50 }),
+          (entries) => {
+            const result = aggregateStablecoinIncome(entries);
+
+            // Sum of all asset totals
+            const assetTotalSum = result.byAsset.reduce(
+              (sum, asset) => sum.add(asset.totalAmount),
+              new Decimal(0)
+            );
+
+            // Should equal totalStablecoinIncome
+            return result.totalStablecoinIncome.equals(assetTotalSum);
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+
+    it('each asset total should equal sum of its chain breakdown amounts', () => {
+      fc.assert(
+        fc.property(
+          fc.array(cryptoEntryArb, { minLength: 1, maxLength: 50 }),
+          (entries) => {
+            const result = aggregateStablecoinIncome(entries);
+
+            for (const assetAgg of result.byAsset) {
+              const chainSum = assetAgg.chainBreakdown.reduce(
+                (sum, chain) => sum.add(chain.amount),
+                new Decimal(0)
+              );
+
+              if (!assetAgg.totalAmount.equals(chainSum)) {
+                return false;
+              }
+            }
+            return true;
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+
+    it('chain breakdown percentages should sum to 100% for each asset', () => {
+      fc.assert(
+        fc.property(
+          fc.array(cryptoEntryArb, { minLength: 1, maxLength: 50 }),
+          (entries) => {
+            const result = aggregateStablecoinIncome(entries);
+
+            for (const assetAgg of result.byAsset) {
+              if (assetAgg.chainBreakdown.length === 0) continue;
+
+              const percentageSum = assetAgg.chainBreakdown.reduce(
+                (sum, chain) => sum + chain.percentage,
+                0
+              );
+
+              // Should be approximately 100% (within 0.1%)
+              if (Math.abs(percentageSum - 100) > 0.1) {
+                return false;
+              }
+            }
+            return true;
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+
+    it('should only include crypto payments in aggregation', () => {
+      fc.assert(
+        fc.property(
+          fc.array(mixedEntryArb, { minLength: 1, maxLength: 50 }),
+          (entries) => {
+            const result = aggregateStablecoinIncome(entries);
+
+            // Calculate expected crypto total manually
+            const expectedCryptoTotal = entries
+              .filter(e => e.paymentMethod === 'crypto_usdc' || e.paymentMethod === 'crypto_usdt')
+              .reduce((sum, e) => sum.add(e.amountInDefaultCurrency), new Decimal(0));
+
+            return result.totalStablecoinIncome.equals(expectedCryptoTotal);
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+
+    it('USDC entries should be aggregated under USDC asset', () => {
+      fc.assert(
+        fc.property(
+          fc.array(cryptoEntryArb, { minLength: 1, maxLength: 50 }),
+          (entries) => {
+            const result = aggregateStablecoinIncome(entries);
+
+            // Calculate expected USDC total
+            const expectedUsdcTotal = entries
+              .filter(e => e.paymentMethod === 'crypto_usdc')
+              .reduce((sum, e) => sum.add(e.amountInDefaultCurrency), new Decimal(0));
+
+            const usdcAgg = result.byAsset.find(a => a.asset === 'USDC');
+            const actualUsdcTotal = usdcAgg?.totalAmount || new Decimal(0);
+
+            return actualUsdcTotal.equals(expectedUsdcTotal);
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+
+    it('USDT entries should be aggregated under USDT asset', () => {
+      fc.assert(
+        fc.property(
+          fc.array(cryptoEntryArb, { minLength: 1, maxLength: 50 }),
+          (entries) => {
+            const result = aggregateStablecoinIncome(entries);
+
+            // Calculate expected USDT total
+            const expectedUsdtTotal = entries
+              .filter(e => e.paymentMethod === 'crypto_usdt')
+              .reduce((sum, e) => sum.add(e.amountInDefaultCurrency), new Decimal(0));
+
+            const usdtAgg = result.byAsset.find(a => a.asset === 'USDT');
+            const actualUsdtTotal = usdtAgg?.totalAmount || new Decimal(0);
+
+            return actualUsdtTotal.equals(expectedUsdtTotal);
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+
+    it('empty entries should return zero totals', () => {
+      const result = aggregateStablecoinIncome([]);
+      expect(result.totalStablecoinIncome.equals(new Decimal(0))).toBe(true);
+      expect(result.byAsset).toEqual([]);
+    });
+
+    it('chain breakdown should be sorted by amount descending', () => {
+      fc.assert(
+        fc.property(
+          fc.array(cryptoEntryArb, { minLength: 2, maxLength: 50 }),
+          (entries) => {
+            const result = aggregateStablecoinIncome(entries);
+
+            for (const assetAgg of result.byAsset) {
+              for (let i = 1; i < assetAgg.chainBreakdown.length; i++) {
+                if (assetAgg.chainBreakdown[i].amount.greaterThan(
+                  assetAgg.chainBreakdown[i - 1].amount
+                )) {
+                  return false;
+                }
+              }
+            }
+            return true;
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+
+    it('byAsset should be sorted by totalAmount descending', () => {
+      fc.assert(
+        fc.property(
+          fc.array(cryptoEntryArb, { minLength: 2, maxLength: 50 }),
+          (entries) => {
+            const result = aggregateStablecoinIncome(entries);
+
+            for (let i = 1; i < result.byAsset.length; i++) {
+              if (result.byAsset[i].totalAmount.greaterThan(
+                result.byAsset[i - 1].totalAmount
+              )) {
+                return false;
+              }
+            }
+            return true;
           }
         ),
         { numRuns: 100 }
