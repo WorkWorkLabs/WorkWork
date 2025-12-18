@@ -7,6 +7,7 @@
 import { prisma } from '@/lib/prisma';
 import type { PaymentMethod, Currency } from '@prisma/client';
 import Decimal from 'decimal.js';
+import { convertCurrency } from '@/server/ledger';
 
 /**
  * Payment success details from PSP
@@ -144,6 +145,21 @@ export async function handlePaymentSuccess(
         });
       }
 
+      // Get user's default currency for conversion
+      const userSettings = await tx.userSettings.findUnique({
+        where: { userId: invoice.userId },
+        select: { defaultCurrency: true },
+      });
+      const defaultCurrency = userSettings?.defaultCurrency || 'USD';
+
+      // Calculate amount in default currency using exchange rate
+      const invoiceAmount = new Decimal(invoice.total.toString());
+      const amountInDefaultCurrency = convertCurrency(
+        invoiceAmount,
+        invoice.currency,
+        defaultCurrency
+      );
+
       // Create ledger entry
       // _需求: 8.1_ - Auto-create ledger entry when invoice is paid
       const ledgerEntry = await tx.ledgerEntry.create({
@@ -155,7 +171,7 @@ export async function handlePaymentSuccess(
           entryDate: now,
           amount: invoice.total,
           currency: invoice.currency,
-          amountInDefaultCurrency: invoice.total, // TODO: Apply exchange rate conversion
+          amountInDefaultCurrency: amountInDefaultCurrency.toFixed(2),
           paymentMethod: 'card' as PaymentMethod,
           clientCountry: invoice.client.country,
           metadata: {
@@ -316,7 +332,8 @@ export function createLedgerEntryData(
     paymentMethod: PaymentMethod;
     pspProvider?: string;
     pspPaymentId?: string;
-  }
+  },
+  defaultCurrency: Currency = 'USD'
 ): {
   userId: string;
   invoiceId: string;
@@ -334,6 +351,9 @@ export function createLedgerEntryData(
     ? new Decimal(invoice.total) 
     : invoice.total;
 
+  // Convert to default currency using exchange rate
+  const amountInDefaultCurrency = convertCurrency(amount, invoice.currency, defaultCurrency);
+
   return {
     userId: invoice.userId,
     invoiceId: invoice.id,
@@ -342,7 +362,7 @@ export function createLedgerEntryData(
     entryDate: new Date(),
     amount,
     currency: invoice.currency,
-    amountInDefaultCurrency: amount, // TODO: Apply exchange rate
+    amountInDefaultCurrency,
     paymentMethod: paymentDetails.paymentMethod,
     clientCountry: client.country,
     metadata: {

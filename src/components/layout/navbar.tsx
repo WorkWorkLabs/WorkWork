@@ -35,6 +35,9 @@ export function Navbar() {
             <Link href="/invoices" className={linkClass('/invoices')}>
               发票
             </Link>
+            <Link href="/ledger" className={linkClass('/ledger')}>
+              账本
+            </Link>
             <Link href="/settings" className={linkClass('/settings')}>
               设置
             </Link>

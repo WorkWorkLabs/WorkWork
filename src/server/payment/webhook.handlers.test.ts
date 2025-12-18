@@ -154,13 +154,27 @@ describe('Webhook Handlers', () => {
       );
     });
 
-    it('ledger entry amount in default currency equals amount (when no exchange rate)', () => {
+    it('ledger entry amount in default currency is properly converted', () => {
       fc.assert(
         fc.property(invoiceArb, clientArb, paymentDetailsArb, (invoice, client, paymentDetails) => {
-          const ledgerEntry = createLedgerEntryData(invoice, client, paymentDetails);
+          // When default currency matches invoice currency, amounts should be equal
+          const ledgerEntry = createLedgerEntryData(invoice, client, paymentDetails, invoice.currency);
           
-          // Without exchange rate conversion, amounts should be equal
+          // Same currency should result in equal amounts
           return ledgerEntry.amountInDefaultCurrency.equals(ledgerEntry.amount);
+        }),
+        { numRuns: 100 }
+      );
+    });
+
+    it('ledger entry amount in default currency is converted when currencies differ', () => {
+      fc.assert(
+        fc.property(invoiceArb, clientArb, paymentDetailsArb, (invoice, client, paymentDetails) => {
+          // Use USD as default currency
+          const ledgerEntry = createLedgerEntryData(invoice, client, paymentDetails, 'USD');
+          
+          // Amount in default currency should be positive
+          return ledgerEntry.amountInDefaultCurrency.greaterThan(0);
         }),
         { numRuns: 100 }
       );
