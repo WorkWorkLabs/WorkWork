@@ -15,7 +15,7 @@ import type { Chain } from '@/types/domain';
  * Returns the current status of a crypto payment
  */
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
@@ -50,8 +50,6 @@ export async function GET(
         { status: 400 }
       );
     }
-
-    const { invoice } = result;
 
     // Get the payment record with crypto details
     const payment = await prisma.payment.findFirst({

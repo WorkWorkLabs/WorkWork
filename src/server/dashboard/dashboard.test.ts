@@ -14,7 +14,6 @@ import {
   calculateTaxReserve,
   aggregateStablecoinIncome,
   type Chain,
-  type StablecoinAsset,
 } from './dashboard.service';
 import {
   currencyArb,

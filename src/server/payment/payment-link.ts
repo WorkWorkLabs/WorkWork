@@ -5,7 +5,6 @@
  */
 
 import { prisma } from '@/lib/prisma';
-import type { Invoice, LineItem, Client } from '@prisma/client';
 
 export interface PaymentPageInvoice {
   id: string;

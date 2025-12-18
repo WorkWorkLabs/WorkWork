@@ -4,7 +4,7 @@
  * **Validates: Requirements 5.7, 6.7, 8.1**
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it } from 'vitest';
 import { fc } from '@/test/fc-config';
 import Decimal from 'decimal.js';
 import type { Currency, PaymentMethod } from '@prisma/client';

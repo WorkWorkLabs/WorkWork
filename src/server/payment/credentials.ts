@@ -6,7 +6,7 @@
 
 import { prisma } from '@/lib/prisma';
 import type { PSPCredentials, PSPProvider } from './types';
-import { PaymentError, PaymentErrorCodes } from './types';
+import { PaymentError } from './types';
 import { getPaymentGateway } from './gateway-factory';
 
 /**

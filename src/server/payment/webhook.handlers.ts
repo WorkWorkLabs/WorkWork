@@ -290,8 +290,10 @@ export type InvoiceStatusType = 'draft' | 'sent' | 'paid' | 'overdue' | 'cancell
  * _需求: 6.7_ - Payment verification failure should not change invoice status
  */
 export function shouldStatusChangeOnPaymentFailure(
-  _currentStatus: InvoiceStatusType,
-  _failureDetails: PaymentFailureDetails
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  currentStatus: InvoiceStatusType,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  failureDetails: PaymentFailureDetails
 ): boolean {
   // Per requirement 6.7: If payment verification fails, invoice status should remain unchanged
   // This function always returns false because payment failure should never change status
@@ -305,7 +307,8 @@ export function shouldStatusChangeOnPaymentFailure(
  */
 export function getStatusAfterPaymentFailure(
   currentStatus: InvoiceStatusType,
-  _failureDetails: PaymentFailureDetails
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  failureDetails: PaymentFailureDetails
 ): InvoiceStatusType {
   // Per requirement 6.7: Status remains unchanged on payment failure
   return currentStatus;

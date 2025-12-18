@@ -4,7 +4,7 @@
  */
 
 import { prisma } from '@/lib/prisma';
-import type { Currency, PaymentMethod } from '@prisma/client';
+import type { PaymentMethod } from '@prisma/client';
 import Decimal from 'decimal.js';
 
 // ============================================

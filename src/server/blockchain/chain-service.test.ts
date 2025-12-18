@@ -4,7 +4,7 @@
  * **Validates: Requirements 7.1**
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it } from 'vitest';
 import { fc } from '@/test/fc-config';
 import { chainArb, stablecoinAssetArb, uuidArb } from '@/test/arbitraries';
 import type { Chain, StablecoinAsset } from '@/types/domain';
@@ -183,9 +183,7 @@ describe('Chain Abstraction Layer', () => {
         fc.property(
           uuidArb,
           uuidArb,
-          chainArb,
-          stablecoinAssetArb,
-          (userId1, userId2, chain, asset) => {
+          (userId1, userId2) => {
             // Skip if users are the same
             if (userId1 === userId2) return true;
 

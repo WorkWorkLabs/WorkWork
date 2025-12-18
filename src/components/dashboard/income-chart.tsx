@@ -64,7 +64,7 @@ export function IncomeChart({ data, isLoading }: IncomeChartProps) {
 function formatPeriodLabel(period: string): string {
   // Handle month format: 2024-01
   if (/^\d{4}-\d{2}$/.test(period)) {
-    const [year, month] = period.split('-');
+    const [, month] = period.split('-');
     return `${month}月`;
   }
   // Handle week format: 2024-W01

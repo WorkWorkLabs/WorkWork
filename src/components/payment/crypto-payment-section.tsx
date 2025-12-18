@@ -48,7 +48,6 @@ const ASSET_DISPLAY_NAMES: Record<StablecoinAsset, string> = {
  */
 export function CryptoPaymentSection({
   token,
-  invoiceId,
   amount,
   currency,
 }: CryptoPaymentSectionProps) {

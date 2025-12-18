@@ -3,7 +3,7 @@
  * Tests for requirements 8.2, 8.4
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it } from 'vitest';
 import { fc } from '@/test/fc-config';
 import Decimal from 'decimal.js';
 import {
@@ -19,7 +19,6 @@ import {
   dateArb,
   decimalArb,
 } from '@/test/arbitraries';
-import type { Currency, PaymentMethod } from '@/types/domain';
 
 // ============================================
 // Test Data Generators
