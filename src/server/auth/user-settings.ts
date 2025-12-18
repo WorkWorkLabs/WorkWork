@@ -65,7 +65,8 @@ export async function createUserSettings(
       businessName: input.businessName ?? null,
       logoUrl: input.logoUrl ?? null,
       country: input.country ?? null,
-      defaultCurrency: input.defaultCurrency ?? 'USD',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      defaultCurrency: (input.defaultCurrency ?? 'USD') as any,
       estimatedTaxRate: input.estimatedTaxRate ?? 0,
     },
   });
@@ -104,7 +105,8 @@ export async function updateUserSettings(
     updateData.country = input.country;
   }
   if (input.defaultCurrency !== undefined) {
-    updateData.defaultCurrency = input.defaultCurrency;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    updateData.defaultCurrency = input.defaultCurrency as any;
   }
   if (input.estimatedTaxRate !== undefined) {
     updateData.estimatedTaxRate = input.estimatedTaxRate;
