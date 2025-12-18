@@ -26,6 +26,9 @@ export function Navbar() {
             WorkWork Ledger
           </Link>
           <div className="flex gap-2">
+            <Link href="/dashboard" className={linkClass('/dashboard')}>
+              仪表盘
+            </Link>
             <Link href="/clients" className={linkClass('/clients')}>
               客户
             </Link>

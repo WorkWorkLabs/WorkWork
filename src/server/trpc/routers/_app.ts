@@ -5,6 +5,7 @@ import { projectRouter } from './project';
 import { invoiceRouter } from './invoice';
 import { cryptoRouter } from './crypto';
 import { ledgerRouter } from './ledger';
+import { dashboardRouter } from './dashboard';
 
 /**
  * Main app router - combine all sub-routers here
@@ -17,6 +18,7 @@ export const appRouter = router({
   invoice: invoiceRouter,
   crypto: cryptoRouter,
   ledger: ledgerRouter,
+  dashboard: dashboardRouter,
 });
 
 // Export type definition of API
