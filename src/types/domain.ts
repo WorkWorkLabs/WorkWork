@@ -1,8 +1,8 @@
 import Decimal from 'decimal.js';
 
 // Currency types
-export type Currency = 'USD' | 'EUR' | 'CNY' | 'GBP' | 'JPY';
-export const CURRENCIES: Currency[] = ['USD', 'EUR', 'CNY', 'GBP', 'JPY'];
+export type Currency = 'USD' | 'EUR' | 'HKD' | 'GBP' | 'JPY';
+export const CURRENCIES: Currency[] = ['USD', 'EUR', 'HKD', 'GBP', 'JPY'];
 
 // Blockchain types
 export type Chain = 'arbitrum' | 'base' | 'polygon';

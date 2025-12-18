@@ -125,20 +125,12 @@ export default function HomePage() {
 
         {/* Quick Actions */}
         <div className="text-center mb-16">
-          <div className="flex justify-center gap-4">
-            <Link
-              href="/clients"
-              className="px-8 py-4 bg-emerald-600 text-white rounded-xl hover:bg-emerald-500 transition-colors font-medium shadow-lg shadow-emerald-500/25"
-            >
-              添加客户
-            </Link>
-            <Link
-              href="/invoices/new"
-              className="px-8 py-4 bg-white/10 backdrop-blur text-white rounded-xl hover:bg-white/20 transition-colors font-medium border border-white/20"
-            >
-              创建发票
-            </Link>
-          </div>
+          <Link
+            href="/invoices/new"
+            className="inline-block px-10 py-4 bg-emerald-600 text-white rounded-xl hover:bg-emerald-500 transition-colors font-medium shadow-lg shadow-emerald-500/25"
+          >
+            创建发票
+          </Link>
         </div>
 
         {/* Features List */}
@@ -153,7 +145,7 @@ export default function HomePage() {
               </div>
               <div>
                 <h3 className="font-medium text-white">多币种支持</h3>
-                <p className="text-sm text-gray-400">支持 USD、EUR、CNY、GBP、JPY</p>
+                <p className="text-sm text-gray-400">支持 USD、EUR、HKD、GBP、JPY</p>
               </div>
             </div>
             <div className="flex gap-4 p-4 bg-white/5 backdrop-blur rounded-xl border border-white/10">

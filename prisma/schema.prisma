@@ -17,7 +17,7 @@ datasource db {
 enum Currency {
   USD
   EUR
-  CNY
+  HKD
   GBP
   JPY
 }

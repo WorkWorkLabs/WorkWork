@@ -35,7 +35,7 @@ interface InvoicePreviewProps {
 const currencySymbols: Record<string, string> = {
   USD: '$',
   EUR: '€',
-  CNY: '¥',
+  HKD: 'HK$',
   GBP: '£',
   JPY: '¥',
 };

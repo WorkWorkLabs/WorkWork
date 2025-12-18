@@ -14,7 +14,7 @@ interface LineItemInput {
 interface InvoiceFormData {
   clientId: string;
   projectId?: string;
-  currency: 'USD' | 'EUR' | 'CNY' | 'GBP' | 'JPY';
+  currency: 'USD' | 'EUR' | 'HKD' | 'GBP' | 'JPY';
   issueDate: string;
   dueDate: string;
   lineItems: LineItemInput[];
@@ -201,7 +201,7 @@ export function InvoiceForm({ clients, projects, onSubmit, onCancel, isLoading }
           >
             <option value="USD">USD</option>
             <option value="EUR">EUR</option>
-            <option value="CNY">CNY</option>
+            <option value="HKD">HKD</option>
             <option value="GBP">GBP</option>
             <option value="JPY">JPY</option>
           </select>

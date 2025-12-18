@@ -36,7 +36,7 @@ const userSettingsInputSchema = z.object({
   businessName: z.string().nullable().optional(),
   logoUrl: z.string().url().nullable().optional(),
   country: z.string().nullable().optional(),
-  defaultCurrency: z.enum(['USD', 'EUR', 'CNY', 'GBP', 'JPY'] as const).optional(),
+  defaultCurrency: z.enum(['USD', 'EUR', 'HKD', 'GBP', 'JPY'] as const).optional(),
   estimatedTaxRate: z.number().min(0).max(1).optional(),
 });
 

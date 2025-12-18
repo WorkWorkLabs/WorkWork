@@ -35,7 +35,7 @@ const createInvoiceSchema = z.object({
   clientId: z.string().optional(),
   newClient: newClientSchema.optional(),
   projectId: z.string().optional(),
-  currency: z.enum(['USD', 'EUR', 'CNY', 'GBP', 'JPY']),
+  currency: z.enum(['USD', 'EUR', 'HKD', 'GBP', 'JPY']),
   issueDate: z.coerce.date(),
   dueDate: z.coerce.date(),
   lineItems: z.array(lineItemSchema).min(1),
