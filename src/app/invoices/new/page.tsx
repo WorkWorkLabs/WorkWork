@@ -204,7 +204,14 @@ export default function NewInvoicePage() {
             返回
           </Link>
           <button
-            onClick={handleSubmit}
+            type="button"
+            onClick={() => {
+              // Trigger form submission programmatically
+              const form = document.querySelector('form');
+              if (form) {
+                form.requestSubmit();
+              }
+            }}
             disabled={createMutation.isPending}
             className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
           >
