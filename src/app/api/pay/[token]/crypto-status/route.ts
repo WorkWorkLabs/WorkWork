@@ -51,6 +51,7 @@ export async function GET(
       );
     }
 
+    // result.invoice is validated but we use token to query payment directly
     // Get the payment record with crypto details
     const payment = await prisma.payment.findFirst({
       where: {

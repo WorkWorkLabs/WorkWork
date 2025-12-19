@@ -72,7 +72,7 @@ export default function DashboardPage() {
           
           <StatCard
             title="交易笔数"
-            value={stats?.periodAggregations?.reduce((sum) => sum + 1, 0).toString() || '0'}
+            value={stats?.periodAggregations?.length.toString() || '0'}
             subtitle="本期间"
             color="cyan"
             icon={
