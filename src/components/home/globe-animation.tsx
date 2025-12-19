@@ -133,12 +133,12 @@ export function GlobeAnimation() {
           const pos = latLngToVector3(lat, lng, globeRadius);
           dotPositions.push(pos.x, pos.y, pos.z);
 
-          // Ocean color - blue/cyan theme
+          // Ocean color - blue/cyan theme (darker for light background)
           const colorVariation = Math.random() * 0.2;
           dotColors.push(
-            0.1 + colorVariation * 0.1, // R
-            0.5 + colorVariation * 0.3, // G
-            0.7 + colorVariation * 0.3 // B
+            0.2 + colorVariation * 0.1, // R
+            0.4 + colorVariation * 0.2, // G
+            0.6 + colorVariation * 0.2 // B
           );
 
           // Size variation
@@ -206,9 +206,9 @@ export function GlobeAnimation() {
     // Add subtle globe outline
     const outlineGeometry = new THREE.SphereGeometry(globeRadius - 0.5, 64, 64);
     const outlineMaterial = new THREE.MeshBasicMaterial({
-      color: 0x0a1628,
+      color: 0xe2e8f0,
       transparent: true,
-      opacity: 0.3,
+      opacity: 0.5,
     });
     const globeOutline = new THREE.Mesh(outlineGeometry, outlineMaterial);
     scene.add(globeOutline);
@@ -402,7 +402,7 @@ export function GlobeAnimation() {
       className="absolute inset-0 -z-10"
       style={{
         background:
-          'radial-gradient(ellipse at center, #0f172a 0%, #020617 70%, #000000 100%)',
+          'radial-gradient(ellipse at center, #ffffff 0%, #f8fafc 50%, #e2e8f0 100%)',
       }}
     />
   );
