@@ -40,7 +40,7 @@ jobs:
         env:
           # Database URL for build (can be a dummy for type checking)
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          # Particle API
-          PARTICLE_CLIENT: ${{ secrets.CLIENT }}
-          PARTICLE_PROJECT_ID: ${{ secrets.PROJECT_ID }}
-          PARTICLE_SERVER: ${{ secrets.SERVER }}
+          # Particle API (Using NEXT_PUBLIC_ prefix for client-side access)
+          NEXT_PUBLIC_PARTICLE_PROJECT_ID: ${{ secrets.PROJECT_ID }}
+          NEXT_PUBLIC_PARTICLE_CLIENT_KEY: ${{ secrets.CLIENT }}
+          NEXT_PUBLIC_PARTICLE_APP_ID: ${{ secrets.APP_ID || secrets.SERVER }}
