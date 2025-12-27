@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
+import { ParticleLoginButton } from '@/components/auth/particle-login-button';
 
 // Dynamic import to avoid SSR issues with Three.js
 const GlobeAnimation = dynamic(
@@ -22,7 +23,7 @@ export default function HomePage() {
             <Link href="/" className="text-xl font-bold text-gray-900">
               WorkWork Ledger
             </Link>
-            <div className="flex gap-6">
+            <div className="flex gap-6 items-center">
               <Link href="/clients" className="text-gray-600 hover:text-gray-900 transition-colors">
                 客户
               </Link>
@@ -32,6 +33,7 @@ export default function HomePage() {
               <Link href="/invoices" className="text-gray-600 hover:text-gray-900 transition-colors">
                 发票
               </Link>
+              <ParticleLoginButton />
             </div>
           </div>
         </div>

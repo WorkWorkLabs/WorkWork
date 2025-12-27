@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
 import { TRPCProvider } from '@/trpc/provider';
+import { ParticleAuthWrapper } from '@/components/auth/particle-provider';
 
 const geistSans = localFont({
   src: './fonts/GeistVF.woff',

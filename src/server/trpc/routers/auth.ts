@@ -4,6 +4,8 @@
  */
 
 import { z } from 'zod';
+import { prisma } from '@/lib/prisma';
+import { Chain, StablecoinAsset } from '@prisma/client';
 import { router, publicProcedure } from '../trpc';
 import {
   sendMagicLink,
@@ -233,5 +235,112 @@ export const authRouter = router({
     )
     .mutation(async ({ input }) => {
       return updateUserSettings(input.userId, input.settings);
+    }),
+
+  /**
+   * Login or Register with Particle Network
+   */
+  loginWithParticle: publicProcedure
+    .input(
+      z.object({
+        uuid: z.string(),
+        email: z.string().email().optional(),
+        name: z.string().optional(),
+        wallets: z.array(
+          z.object({
+            chain: z.string(),
+            address: z.string(),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ input }) => {
+      // 1. Try to find user by particleUuid
+      let user = await prisma.user.findUnique({
+        where: { particleUuid: input.uuid },
+      });
+
+      // 2. If not found, try to find by email
+      if (!user && input.email) {
+        user = await prisma.user.findUnique({
+          where: { email: input.email },
+        });
+
+        // Link existing user
+        if (user) {
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: { particleUuid: input.uuid },
+          });
+        }
+      }
+
+      // 3. If still not found, create new user
+      if (!user) {
+        user = await prisma.user.create({
+          data: {
+            particleUuid: input.uuid,
+            email: input.email || `${input.uuid}@particle.user`, 
+            name: input.name,
+          },
+        });
+        
+        // Create default settings
+        await ensureUserSettings(user.id);
+      }
+
+      // 4. Update/Create wallet addresses
+      for (const wallet of input.wallets) {
+        const chainKey = wallet.chain.toLowerCase();
+        let mappedChain: Chain | undefined;
+        
+        if (chainKey.includes('arbitrum')) mappedChain = Chain.arbitrum;
+        else if (chainKey.includes('base')) mappedChain = Chain.base;
+        else if (chainKey.includes('polygon') || chainKey.includes('matic')) mappedChain = Chain.polygon;
+
+        if (mappedChain) {
+          // Upsert for USDC
+          await prisma.walletAddress.upsert({
+            where: {
+              userId_chain_asset: {
+                userId: user.id,
+                chain: mappedChain,
+                asset: StablecoinAsset.USDC,
+              }
+            },
+            create: {
+              userId: user.id,
+              chain: mappedChain,
+              asset: StablecoinAsset.USDC,
+              address: wallet.address,
+            },
+            update: {
+              address: wallet.address,
+            }
+          });
+
+          // Upsert for USDT
+          await prisma.walletAddress.upsert({
+             where: {
+              userId_chain_asset: {
+                userId: user.id,
+                chain: mappedChain,
+                asset: StablecoinAsset.USDT,
+              }
+            },
+            create: {
+              userId: user.id,
+              chain: mappedChain,
+              asset: StablecoinAsset.USDT,
+              address: wallet.address,
+            },
+            update: {
+              address: wallet.address,
+            }
+          });
+        }
+      }
+      
+      return { success: true, userId: user.id };
     }),
 });
